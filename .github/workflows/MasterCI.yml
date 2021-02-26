@@ -10,9 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: ShellCheck
-      uses: ludeeus/action-shellcheck@0.4.1
+      uses: sumup/action-shellcheck@0.4.1
     - name: Terraform security scan
-      uses: triat/terraform-security-scan@master
+      uses: sumup/terraform-security-scan@master
       with:
         tfsec_actions_comment: false
         tfsec_actions_working_dir: "test/"
