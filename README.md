@@ -11,7 +11,9 @@ The action requires the https://github.com/actions/checkout before to download t
 * `tfsec_actions_working_dir` - (Optional) Terraform working directory location. Defaults to `'.'`.
 * `tfsec_exclude` - (Optional) Provide checks via `,` without space to exclude from run. No default
 * `tfsec_version` - (Optional) Specify the version of tfsec to install. Defaults to the latest
-
+* `tfsec_output_format` - (Optional) The output format: default, json, csv, checkstyle, junit, sarif (check `tfsec` for an extensive list)
+* `tfsec_output_file` - (Optional) The name of the output file
+    
 ## Outputs
 
 None
@@ -21,7 +23,7 @@ None
 ```yaml
 steps:
   - uses: actions/checkout@v2
-  - uses: triat/terraform-security-scan@v2.0.2
+  - uses: triat/terraform-security-scan@v2.2.3
 ```
 The above example uses a tagged version (`v1`), you can also opt to use any of the released version.
 
@@ -43,7 +45,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Terraform security scan
-        uses: triat/terraform-security-scan@v2.0.2
+        uses: triat/terraform-security-scan@v2.2.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
