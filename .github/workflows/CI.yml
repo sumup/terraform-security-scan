@@ -12,3 +12,5 @@ jobs:
     - uses: actions/checkout@v2
     - name: ShellCheck
       uses: sumup/action-shellcheck@0.4.1
+    - name: Terraform security scan
+      uses: sumup/terraform-security-scan@v3.1.0
