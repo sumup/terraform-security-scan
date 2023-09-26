@@ -14,8 +14,9 @@ inputs:
     description: 'Provide checks via , without space to exclude from run'
     required: false
   tfsec_version:
+    default: 'b963b27214038c3a1171633c50d92b641781f4c6'
     description: 'Specify the version of tfsec to install'
-    required: false
+    required: true
   tfsec_output_format:
     description: 'The output format: default, json, csv, checkstyle, junit, sarif (check `tfsec` for an extensive list)'
     required: false
