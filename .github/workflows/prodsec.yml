@@ -1,0 +1,30 @@
+name: ProdSec Security
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
+concurrency:
+  group: prodsec-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    name: Luna 6 + Sonnet 5.5
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    uses: sumup/prodsec-bot/.github/workflows/prodsec.yml@b089679156c19640bb23f9bf1f986da62aac9a2c # v5
+    with:
+      bot_ref: b089679156c19640bb23f9bf1f986da62aac9a2c # v5
+      fail_on_severity: none
+      openai_model: gpt-6-luna
+      anthropic_model: claude-sonnet-5-5-default
+    secrets:
+      LANGDOCK_API_KEY: ${{ secrets.PRODSEC_BOT_API_KEY }}
+      PRODSEC_APP_CLIENT_ID: ${{ secrets.PRODSEC_APP_CLIENT_ID }}
+      PRODSEC_APP_PRIVATE_KEY: ${{ secrets.PRODSEC_APP_PRIVATE_KEY }}

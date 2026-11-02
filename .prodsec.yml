@@ -1,0 +1,16 @@
+version: 1
+thresholds:
+  report_only: true
+  fail_on: none
+  comment_on: medium
+validation_policy:
+  providers: [anthropic, openai]
+reporting:
+  security_only: true
+  show_overview: false
+  show_architecture: false
+  collapse_findings: true
+llm:
+  models:
+    openai: gpt-6-luna
+    anthropic: claude-sonnet-5-5-default
