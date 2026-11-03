@@ -18,9 +18,9 @@ jobs:
   security:
     name: Luna 6 + Sonnet 5.5
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
-    uses: sumup/prodsec-bot/.github/workflows/prodsec.yml@b089679156c19640bb23f9bf1f986da62aac9a2c # v5
+    uses: sumup/prodsec-bot/.github/workflows/prodsec.yml@166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
     with:
-      bot_ref: b089679156c19640bb23f9bf1f986da62aac9a2c # v5
+      bot_ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
       fail_on_severity: none
       openai_model: gpt-6-luna
       anthropic_model: claude-sonnet-5-5-default
