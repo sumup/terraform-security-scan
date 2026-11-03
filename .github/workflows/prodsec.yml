@@ -4,27 +4,152 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-permissions:
-  contents: read
-  pull-requests: write
-  checks: write
-  issues: write
+permissions: {}
 
 concurrency:
   group: prodsec-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Public repositories cannot call private reusable workflows. Build the pinned
+# bot independently in each job so its source and binary stay off public artifacts.
 jobs:
-  security:
-    name: Luna 6 + Sonnet 5.5
+  analyze:
+    name: Analyze
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
-    uses: sumup/prodsec-bot/.github/workflows/prodsec.yml@166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
-    with:
-      bot_ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
-      fail_on_severity: none
-      openai_model: gpt-6-luna
-      anthropic_model: claude-sonnet-5-5-default
-    secrets:
-      LANGDOCK_API_KEY: ${{ secrets.PRODSEC_BOT_API_KEY }}
-      PRODSEC_APP_CLIENT_ID: ${{ secrets.PRODSEC_APP_CLIENT_ID }}
-      PRODSEC_APP_PRIVATE_KEY: ${{ secrets.PRODSEC_APP_PRIVATE_KEY }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      report_id: ${{ steps.report.outputs.artifact-id }}
+    steps:
+      - name: Create read-only bot source token
+        id: source
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          client-id: ${{ secrets.PRODSEC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRODSEC_APP_PRIVATE_KEY }}
+          owner: sumup
+          repositories: prodsec-bot
+          permission-contents: read
+      - name: Checkout trusted bot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: sumup/prodsec-bot
+          ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
+          token: ${{ steps.source.outputs.token }}
+          persist-credentials: false
+          path: bot
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build trusted bot without runtime credentials
+        working-directory: bot
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go mod verify
+          go build -mod=readonly -trimpath -o ../bin/prodsec ./cmd/prodsec
+      - name: Analyze PR data without executing PR code
+        env:
+          PRODSEC_MODE: analyze
+          LANGDOCK_API_KEY: ${{ secrets.PRODSEC_BOT_API_KEY }}
+          LANGDOCK_REGION: eu
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          OPENAI_MODEL: gpt-6-luna
+          ANTHROPIC_MODEL: claude-sonnet-5-5-default
+          FAIL_ON_SEVERITY: none
+        run: |
+          marker=$(cat /proc/sys/kernel/random/uuid)
+          trap 'printf "\n::%s::\n" "$marker"' EXIT
+          echo "::stop-commands::$marker"
+          bin/prodsec
+      - name: Save analysis
+        id: report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: prodsec-analysis-${{ github.run_attempt }}
+          path: prodsec-report.json
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      issues: write
+    steps:
+      - name: Create read-only bot source token
+        id: source
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          client-id: ${{ secrets.PRODSEC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRODSEC_APP_PRIVATE_KEY }}
+          owner: sumup
+          repositories: prodsec-bot
+          permission-contents: read
+      - name: Checkout trusted bot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: sumup/prodsec-bot
+          ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
+          token: ${{ steps.source.outputs.token }}
+          persist-credentials: false
+          path: bot
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build trusted bot without runtime credentials
+        working-directory: bot
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go mod verify
+          go build -mod=readonly -trimpath -o ../bin/prodsec ./cmd/prodsec
+      - name: Validate analysis artifact
+        env:
+          REPORT_ID: ${{ needs.analyze.outputs.report_id }}
+        run: '[[ "$REPORT_ID" =~ ^[1-9][0-9]*$ ]]'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.analyze.outputs.report_id }}
+          merge-multiple: true
+      - name: Publish without model credentials
+        env:
+          PRODSEC_MODE: publish
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          FAIL_ON_SEVERITY: none
+        run: |
+          marker=$(cat /proc/sys/kernel/random/uuid)
+          trap 'printf "\n::%s::\n" "$marker"' EXIT
+          echo "::stop-commands::$marker"
+          bin/prodsec
+
+  security-analysis:
+    name: Security Analysis
+    needs: [analyze, publish]
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Require completed analysis and publication
+        env:
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: '[[ "$ANALYZE_RESULT" == success && "$PUBLISH_RESULT" == success ]]'
