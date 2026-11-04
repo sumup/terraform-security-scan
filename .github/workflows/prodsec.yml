@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: sumup/prodsec-bot
-          ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
+          ref: 83364213e39f4e66791c4ee12e7af3c7e1f05caf # v5.2
           token: ${{ steps.source.outputs.token }}
           persist-credentials: false
           path: bot
@@ -103,7 +103,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: sumup/prodsec-bot
-          ref: 166041f650b7ba9788c9803fc83ceeff564571e4 # v5.1
+          ref: 83364213e39f4e66791c4ee12e7af3c7e1f05caf # v5.2
           token: ${{ steps.source.outputs.token }}
           persist-credentials: false
           path: bot
